@@ -44,6 +44,12 @@ pip install -r requirements.txt
 python app.py
 ```
 
+### ╳ Connect to the Pannel
+Just go into ur Browser and go on:
+```bash
+http://<IP_HERE>:6969
+```
+
 ## 5. Requirements
 - **Python 3.x**: Make sure it's installed.
 - **Flask**: For the web framework.
