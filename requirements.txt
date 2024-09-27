@@ -1,0 +1,5 @@
+Flask
+psutil
+RPi.GPIO
+pynvml
+shutilwhich
