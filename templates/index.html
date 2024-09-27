@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitoring Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #222222;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #00ff00;
+        }
+
+        .dashboard {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .chart-container {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            width: 300px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            position: relative;
+        }
+
+        .chart-container.large {
+            width: 600px;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .gauge-label {
+            margin-top: 10px;
+            color: #00ff00;
+            font-size: 18px;
+        }
+
+        .gauge-percentage {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+
+        .gauge-subtitle {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            height: 25px;
+            background-color: #3a3a3a;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border-radius: 10px;
+            border-top: 1.5px white dotted;
+        }
+
+
+        .gauge-usage {
+            position: absolute;
+            top: 70%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            text-align: center;
+            font-size: 20px;
+            color: #fff;
+        }
+
+        .loading {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            border: 8px solid rgba(255, 255, 255, 0.3);
+            border-top: 8px solid #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none;
+            z-index: 99;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .uptime h3 {
+            color: #00ff00;
+        }
+
+        #uptimeLabel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 38px;
+        }
+        
+        .action-box {
+            position: absolute;
+            top: 20px;
+            left: 25px;
+            background-color: #333;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: space-around;
+            width: 200px;
+        }
+
+        .action-box button {
+            position: relative;
+            background-color: #444;
+            border-radius: 15px;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .action-box button:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+<h1>System Monitoring Dashboard</h1>
+
+<div class="action-box">
+    <button id="reboot-button" onclick="rebootSystem()">Reboot</button>
+    <button id="stop-button" onclick="stopSystem()">Stop</button>
+</div>
+
+<div class="dashboard">
+    <div class="chart-container">
+        <canvas id="cpuGauge"></canvas>
+        <div class="loading" id="cpuLoading"></div>
+        <div class="gauge-percentage" id="cpuPercentage">0%</div>
+        <div class="gauge-usage" id="cpuUsage">0 GHz</div>
+        <div class="gauge-subtitle">CPU Usage</div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="gpuGauge"></canvas>
+        <div class="loading" id="gpuLoading"></div>
+        <div class="gauge-percentage" id="gpuPercentage">0%</div>
+        <div class="gauge-usage" id="gpuUsage">0 MB</div>
+        <div class="gauge-subtitle">GPU Usage</div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="ramGauge"></canvas>
+        <div class="loading" id="ramLoading"></div>
+        <div class="gauge-percentage" id="ramPercentage">0%</div>
+        <div class="gauge-usage" id="ramUsage">0 GB used / 0 GB total</div>
+        <div class="gauge-subtitle">RAM Usage</div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="diskGauge"></canvas>
+        <div class="loading" id="diskLoading"></div>
+        <div class="gauge-percentage" id="diskPercentage">0%</div>
+        <div class="gauge-usage" id="diskUsage">0 GB used / 0 GB total</div>
+        <div class="gauge-subtitle">Disk Usage</div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="temperatureGauge"></canvas>
+        <div class="loading" id="temperatureLoading"></div>
+        <div class="gauge-percentage" id="temperaturePercentage">0°C</div>
+        <div class="gauge-subtitle">CPU Temperature</div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="temperatureGpuGauge"></canvas>
+        <div class="loading" id="temperatureGpuLoading"></div>
+        <div class="gauge-percentage" id="temperatureGpuPercentage">0°C</div>
+        <div class="gauge-subtitle">GPU Temperature</div>
+    </div>
+
+    <div class="chart-container">
+        <div class="loading" id="uptimeLoading"></div>
+        <div class="gauge-label" id="uptimeLabel">Uptime: 0 seconds</div>
+        <div class="gauge-subtitle">System Uptime</div>
+    </div>
+
+    <div class="chart-container">
+        <div class="loading" id="processLoading"></div>
+        <div class="gauge-label" id="processesLabel">Processes: 0</div>
+        <div class="gauge-subtitle">Running Processes</div>
+    </div>
+
+    <div class="chart-container large">
+        <canvas id="networkChart"></canvas>
+        <div class="loading" id="networkLoading"></div>
+        <div class="gauge-subtitle">Network Usage (MB)</div>
+    </div>
+</div>
+
+<script>
+
+    let temperatureGauge = createGaugeChart(document.getElementById('temperatureGauge').getContext('2d'), 0);
+    let temperatureGpuGauge = createGaugeChart(document.getElementById('temperatureGpuGauge').getContext('2d'), 0);
+
+    function updateTemperatureGauge(gaugeChart, temperature) {
+        gaugeChart.data.datasets[0].data[0] = temperature;
+        gaugeChart.update();
+        document.getElementById('temperaturePercentage').innerText = `${temperature.toFixed(1)}°C`;
+    }
+
+    function updateGpuTemperatureGauge(gaugeChart, temperature) {
+        gaugeChart.data.datasets[0].data[0] = temperature;
+        gaugeChart.update();
+        document.getElementById('temperatureGpuPercentage').innerText = `${parseFloat(temperature).toFixed(1)}°C`;
+    }
+
+    function updateUptimeLabel(uptime) {
+        const days = Math.floor(uptime / 60 / 60 / 24);
+        const hours = Math.floor((uptime / 60 / 60) % 24);
+        const minutes = Math.floor((uptime / 60) % 60);
+        const seconds = Math.floor(uptime % 60);
+
+        document.getElementById('uptimeLabel').innerText = `\n${days} days\n${hours} hours\n${minutes} minutes\n${seconds} seconds\n`;
+    }
+
+    function updateProcessesLabel(processes) {
+        document.getElementById('processesLabel').innerText = `Processes: ${processes.length}`;
+    }
+
+    function rebootSystem() {
+        $.ajax({
+            type: 'POST',
+            url: '/reboot',
+            success: function() {
+                console.log('System rebooting...');
+                setTimeout(function() {
+                    window.location.reload();
+                }, 5000);
+            }
+        });
+    }
+
+    function stopSystem() {
+        $.ajax({
+            type: 'POST',
+            url: '/stop',
+            success: function() {
+                console.log('System stopping...');
+                setTimeout(function() {
+                    window.location.reload();
+                }, 5000);
+            }
+        });
+    }
+
+    function createGaugeChart(ctx, percentage) {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(0, 255, 0, 0.9)');   
+        gradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.9)'); 
+        gradient.addColorStop(1, 'rgba(255, 0, 0, 0.9)');     
+        
+        return new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [percentage, 100 - percentage],
+                    backgroundColor: [
+                        gradient,   
+                        'rgba(240, 240, 240, 0.3)'  
+                    ],
+                    borderWidth: 3,  
+                    borderColor: 'rgba(255, 255, 255, 0.7)',  
+                    hoverBorderColor: 'rgba(0, 0, 0, 0.1)',   
+                    hoverBorderWidth: 3,
+                }]
+            },
+            options: {
+                cutout: "80%", 
+                responsive: true,
+                legend: {
+                    display: false
+                },
+                tooltips: {
+                    enabled: false
+                },
+                rotation: -90,  
+                circumference: 180,  
+                animation: {
+                    animateRotate: true,
+                    duration: 1500,
+                    easing: 'easeOutQuint'  
+                },
+                plugins: {
+                    beforeDraw: function(chart) {
+                        const width = chart.width,
+                            height = chart.height,
+                            ctx = chart.ctx;
+                        ctx.restore();
+                        const fontSize = (height / 140).toFixed(2); 
+                        ctx.font = fontSize + "em 'Roboto', sans-serif";  
+                        ctx.textBaseline = "middle";
+                        
+                        const text = percentage + "%",
+                            textX = Math.round((width - ctx.measureText(text).width) / 2),
+                            textY = height / 1.6;
+
+                        ctx.fillStyle = "#333"; 
+                        ctx.fillText(text, textX, textY);
+                        ctx.save();
+                    }
+                },
+                hover: {
+                    onHover: function(e, activeEls) {
+                        if (activeEls.length > 0) {
+                            ctx.canvas.style.cursor = 'pointer';  
+                        } else {
+                            ctx.canvas.style.cursor = 'default';
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+
+
+    function updateGauge(gaugeChart, percentage, percentageId, usageId, usageText) {
+        gaugeChart.data.datasets[0].data[0] = parseFloat(percentage);
+        gaugeChart.update();
+        document.getElementById(percentageId).innerText = `${parseFloat(percentage).toFixed(1)}%`;
+        document.getElementById(usageId).innerText = usageText;
+    }
+
+    function updateNetworkChart(chart, labels, sent, received) {
+        labels = labels.map(timestamp => {
+            const date = new Date(timestamp);
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const seconds = date.getSeconds().toString().padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        });
+
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = sent;
+        chart.data.datasets[1].data = received;
+        chart.update();
+    }
+    let cpuGauge = createGaugeChart(document.getElementById('cpuGauge').getContext('2d'), 0);
+    let gpuGauge = createGaugeChart(document.getElementById('gpuGauge').getContext('2d'), 0);
+    let ramGauge = createGaugeChart(document.getElementById('ramGauge').getContext('2d'), 0);
+    let diskGauge = createGaugeChart(document.getElementById('diskGauge').getContext('2d'), 0);
+
+    let networkChart = new Chart(document.getElementById('networkChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Sent',
+                data: [],
+                borderColor: 'rgba(0, 255, 0, 0.8)',
+                backgroundColor: 'rgba(0, 255, 0, 0.2)',
+                pointBackgroundColor: 'rgba(0, 255, 0, 0.8)',
+                pointBorderColor: 'rgba(0, 255, 0, 0.8)',
+                pointRadius: 0,
+                fill: true
+            }, {
+                label: 'Received',
+                data: [],
+                borderColor: 'rgba(255, 0, 0, 0.8)',
+                backgroundColor: 'rgba(255, 0, 0, 0.2)',
+                pointBackgroundColor: 'rgba(255, 0, 0, 0.8)',
+                pointBorderColor: 'rgba(255, 0, 0, 0.8)',
+                pointRadius: 0,
+                fill: true
+            }]
+        },
+        options: {
+            legend: {
+                display: true
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    let dataLoaded = false;
+
+    function updateStats() {
+        if (!dataLoaded) {
+            document.getElementById('cpuLoading').style.display = 'block';
+            document.getElementById('gpuLoading').style.display = 'block';
+            document.getElementById('ramLoading').style.display = 'block';
+            document.getElementById('uptimeLoading').style.display = 'block';
+            document.getElementById('processLoading').style.display = 'block';
+            document.getElementById('temperatureGpuLoading').style.display = 'block';
+            document.getElementById('temperatureLoading').style.display = 'block';
+            document.getElementById('diskLoading').style.display = 'block';
+            document.getElementById('networkLoading').style.display = 'block';
+        }
+
+        $.getJSON('/stats', function(data) {
+
+            if (!dataLoaded) {
+                document.getElementById('cpuLoading').style.display = 'block';
+                document.getElementById('gpuLoading').style.display = 'block';
+                document.getElementById('ramLoading').style.display = 'block';
+                document.getElementById('uptimeLoading').style.display = 'block';
+                document.getElementById('processLoading').style.display = 'block';
+                document.getElementById('temperatureGpuLoading').style.display = 'block';
+                document.getElementById('temperatureLoading').style.display = 'block';
+                document.getElementById('diskLoading').style.display = 'block';
+                document.getElementById('networkLoading').style.display = 'block';
+            }
+
+            if (!dataLoaded) {
+                document.getElementById('cpuLoading').style.display = 'none';
+                document.getElementById('gpuLoading').style.display = 'none';
+                document.getElementById('ramLoading').style.display = 'none';
+                document.getElementById('diskLoading').style.display = 'none';
+                document.getElementById('uptimeLoading').style.display = 'none';
+                // document.getElementById('processLoading').style.display = 'none';
+                document.getElementById('temperatureGpuLoading').style.display = 'none';
+                document.getElementById('temperatureLoading').style.display = 'none';
+                document.getElementById('networkLoading').style.display = 'none';
+                dataLoaded = true;
+            }
+
+            if (data.ram && data.ram.used !== undefined && data.ram.total !== undefined) {
+                let ramUsed = parseFloat(data.ram.used.replace(/[^0-9.]/g, ''));
+                let ramTotal = parseFloat(data.ram.total.replace(/[^0-9.]/g, ''));
+                let ramUsage = (ramUsed / ramTotal) * 100;
+                updateGauge(ramGauge, ramUsage, 'ramPercentage', 'ramUsage', `${data.ram.used} / ${data.ram.total}`);
+            } else {
+                console.error('RAM data is incomplete or missing');
+            }
+
+            if (data.disk && data.disk.used !== undefined && data.disk.total !== undefined) {
+                let diskUsed = parseFloat(data.disk.used.replace(/[^0-9.]/g, ''));
+                let diskTotal = parseFloat(data.disk.total.replace(/[^0-9.]/g, ''));
+                let diskUsage = (diskUsed / diskTotal) * 100;
+                updateGauge(diskGauge, diskUsage, 'diskPercentage', 'diskUsage', `${data.disk.used} / ${data.disk.total}`);
+            } else {
+                console.error('Disk data is incomplete or missing');
+            }
+
+            if (data.cpu !== undefined) {
+                let cpuUsage = data.cpu.cpu;
+                updateGauge(cpuGauge, cpuUsage, 'cpuPercentage', 'cpuUsage', `${data.cpu.cpu_speed}`);
+            } else {
+                console.error('CPU data is missing or undefined');
+            }
+
+            if (data.gpu !== undefined) {
+                let gpuUsage = data.gpu.gpu;
+                let gpuTotal = data.gpu.total;
+                let gpuUsed = data.gpu.used;
+                let gpuFree = data.gpu.free;
+                updateGauge(gpuGauge, gpuUsage, 'gpuPercentage', 'gpuUsage', `${parseInt(gpuUsed)} MB / ${parseInt(gpuTotal)} MB`);
+            } else {
+                console.error('GPU data is missing or undefined');
+            }
+
+            if (data.cpu_temperature !== undefined) {
+                let temperature = data.cpu_temperature.temperature;
+                updateTemperatureGauge(temperatureGauge, temperature);
+            } else {
+                console.error('CPU Temperature data is missing or undefined');
+            }
+
+            if (data.gpu_temperature !== undefined) {
+                let temperature = data.gpu_temperature.gpu_temperature;
+                updateGpuTemperatureGauge(temperatureGpuGauge, temperature);
+            } else {
+                console.error('GPU Temperature data is missing or undefined');
+            }
+
+            if (data.uptime !== undefined) {
+                let uptime = data.uptime;
+                updateUptimeLabel(uptime);
+            } else {
+                console.error('Uptime data is missing or undefined');
+            }
+
+            if (data.processes !== undefined) {
+                let processes = data.processes.processes;
+                updateProcessesLabel(processes);
+            } else {
+                console.error('Processes data is missing or undefined');
+            }
+
+            updateNetworkChart(networkChart, data.network_history.map(item => item.time), data.network_history.map(item => item.sent), data.network_history.map(item => item.received));
+        });
+    }
+
+    setInterval(updateStats, 500);
+
+    updateStats();
+</script>
+</body>
+</html>
